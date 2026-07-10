@@ -90,3 +90,13 @@ export async function listIssueEvents(projectId: string, issueId: string, limit 
     .orderBy(desc(schema.events.occurredAt))
     .limit(limit);
 }
+
+export async function getLatestSummary(projectId: string, issueId: string) {
+  const r = await db
+    .select()
+    .from(schema.issueSummaries)
+    .where(and(eq(schema.issueSummaries.projectId, projectId), eq(schema.issueSummaries.issueId, issueId)))
+    .orderBy(desc(schema.issueSummaries.createdAt))
+    .limit(1);
+  return r[0] ?? null;
+}

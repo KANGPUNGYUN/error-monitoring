@@ -1,6 +1,9 @@
 import { notFound } from "next/navigation";
-import { getProject, getIssue, listIssueEvents } from "@/db/queries";
+import { getProject, getIssue, listIssueEvents, getLatestSummary } from "@/db/queries";
 import { Card, Crumbs, StatusBadge, IssueStatusBadge, ago } from "@/ui/components";
+import { generateSummaryAction } from "./actions";
+
+type EvidenceClaim = { claim: string; event_ids: number[]; metric_ids: string[] };
 
 export const dynamic = "force-dynamic";
 
@@ -12,8 +15,12 @@ export default async function IssuePage({
   const { projectId, issueId } = await params;
   const [project, issue] = await Promise.all([getProject(projectId), getIssue(projectId, issueId)]);
   if (!project || !issue) notFound();
-  const events = await listIssueEvents(projectId, issueId);
+  const [events, summary] = await Promise.all([
+    listIssueEvents(projectId, issueId),
+    getLatestSummary(projectId, issueId),
+  ]);
   const rep = events[0]; // 대표 이벤트(top frames 표시)
+  const claims = (summary?.evidence as EvidenceClaim[] | undefined) ?? [];
 
   return (
     <main className="mx-auto max-w-5xl px-6 py-10">
@@ -33,6 +40,47 @@ export default async function IssuePage({
         {issue.eventCount} events · first {ago(issue.firstSeenAt)} · last {ago(issue.lastSeenAt)}
         {issue.affectedReleases?.length ? ` · releases ${issue.affectedReleases.join(", ")}` : ""}
       </div>
+
+      {/* 증거 연결형 요약 (SPEC 7) */}
+      <Card className="mt-5">
+        <div className="flex items-center justify-between">
+          <div className="text-xs uppercase tracking-wide text-neutral-500">증거 연결형 요약</div>
+          <form action={generateSummaryAction}>
+            <input type="hidden" name="projectId" value={projectId} />
+            <input type="hidden" name="issueId" value={issueId} />
+            <button className="rounded border border-neutral-300 px-2.5 py-1 text-xs hover:border-neutral-500 dark:border-neutral-700">
+              {summary ? "다시 생성" : "요약 생성"}
+            </button>
+          </form>
+        </div>
+        {summary ? (
+          <>
+            <p className="mt-2 text-sm">{summary.summary}</p>
+            <div className="mt-1 text-[11px] text-neutral-400">
+              모델: {summary.model} · 원인 단정 아님, 관찰 사실만 연결
+            </div>
+            {claims.length > 0 && (
+              <ul className="mt-3 space-y-1.5 border-t border-neutral-100 pt-3 text-xs dark:border-neutral-800">
+                {claims.map((c, i) => (
+                  <li key={i} className="flex gap-2">
+                    <span className="text-neutral-400">•</span>
+                    <span>
+                      {c.claim}{" "}
+                      <span className="text-neutral-400">
+                        [근거 {c.event_ids.map((e) => `#${e}`).join(", ") || c.metric_ids.join(", ")}]
+                      </span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
+        ) : (
+          <p className="mt-2 text-sm text-neutral-500">
+            아직 요약이 없습니다. "요약 생성"을 누르세요. (Ollama 있으면 자연어, 없으면 결정적 사실 요약)
+          </p>
+        )}
+      </Card>
 
       {/* 대표 스택 프레임 */}
       {rep?.topFrames?.length ? (

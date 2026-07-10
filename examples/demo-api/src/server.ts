@@ -57,6 +57,11 @@ app.post("/api/signup", (req, res) => {
 // 성공 (200) — 샘플링 대상
 app.get("/api/ok", (_req, res) => res.json({ ok: true }));
 
+// 느린 성공 GET — 자주 불리고 느린 안정적 조회(캐싱 후보 대상)
+app.get("/api/dashboard", (_req, res) => {
+  setTimeout(() => res.json({ widgets: 12 }), 650 + Math.floor(Math.random() * 200));
+});
+
 app.use(monitor.expressErrorHandler()); // ← 라우트 후 (에러 스택 캡처)
 
 // 최종 에러 핸들러(앱 고유) — 500 응답

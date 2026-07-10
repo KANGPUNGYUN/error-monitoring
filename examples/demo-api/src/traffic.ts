@@ -21,6 +21,7 @@ async function main() {
     tasks.push(hit(`/api/report`));
     tasks.push(hit(`/api/signup`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: i % 3 === 0 ? "bad" : "ok@x.com" }) }));
     tasks.push(hit(`/api/ok`));
+    tasks.push(hit(`/api/dashboard`)); // 느린 성공 GET (캐싱 후보)
   }
   await Promise.all(tasks);
   console.log(`sent ~${N * 6} requests to ${base}. SDK 가 배치로 인제스트에 전송합니다(2s flush).`);

@@ -171,6 +171,7 @@ export const alertRules = pgTable(
     windowMin: integer("window_min").notNull().default(5),
     slackWebhook: text("slack_webhook").notNull(),
     enabled: boolean("enabled").notNull().default(true),
+    lastFiredAt: timestamp("last_fired_at", { withTimezone: true }), // 쿨다운
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("alert_rules_project_idx").on(t.projectId)],

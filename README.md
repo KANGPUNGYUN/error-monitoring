@@ -18,7 +18,9 @@ AI 기반 API 모니터링 & 에러 그룹화 연구 플랫폼. 상세 설계는
 - [x] **6. 증거 연결형 요약** — 이슈 상세에 결정적 fact-only 요약(근거 event_id 인용, 원인 단정 금지). Ollama 있으면 자연어로 narration(`src/lib/summarize.ts`, `src/lib/llm.ts`). Slack 알림은 후속.
 - [x] **7. 규칙 기반 개선 후보 추천** — 관측 데이터로 캐싱/지연/에러율/타임아웃 후보 플래그(근거 수치 첨부, "검토 대상" 단정 금지). `src/lib/candidates.ts`, 프로젝트 overview에 표시.
 
-Slack 알림은 남은 후속 항목. 연구 ⑤(AI 실비교)는 라벨만 있으면 배선 완료 상태(`research/run.ts --openai` 또는 로컬 transformers).
+- [x] **8. Slack 실시간 알림** — 인제스트 후 `after()`로 임계치(error_rate/latency_p95) 평가 → 초과 시 Slack webhook(증거 요약 + 대시보드 링크), 쿨다운=윈도우. 규칙 관리 UI(`/projects/[id]/alerts`). `src/lib/alerts.ts`.
+
+연구 ⑤(AI 실비교)는 라벨만 있으면 배선 완료 상태(`research/run.ts --openai` 또는 로컬 transformers).
 
 연구 하네스 실행: `npm run research:gen && npm run research:eval` → `reports/grouping-eval.md`. 자세히는 [`research/README.md`](./research/README.md).
 

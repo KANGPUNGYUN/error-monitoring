@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { ingestBodySchema } from "@/ingest/event-schema";
 import { extractIngestKey, resolveTenant } from "@/lib/ingest-auth";
 import { processEvents } from "@/ingest/process";
+import { evaluateAlerts } from "@/lib/alerts";
 
 export const runtime = "nodejs";
 
@@ -33,6 +34,8 @@ export async function POST(req: NextRequest) {
   // 3) 처리(재-새니타이즈 → 그룹화 → 저장).
   try {
     const result = await processEvents(tenant, parsed.data.events);
+    // 알림 평가는 응답 후 실행(인제스트 경로를 블로킹하지 않음).
+    after(() => evaluateAlerts(tenant.projectId));
     return NextResponse.json({ ok: true, ...result }, { status: 202 });
   } catch (err) {
     console.error("[ingest] processing failed", (err as Error)?.stack ?? err);

@@ -91,6 +91,22 @@ export async function listIssueEvents(projectId: string, issueId: string, limit 
     .limit(limit);
 }
 
+export async function listAlertRules(projectId: string) {
+  return db
+    .select()
+    .from(schema.alertRules)
+    .where(eq(schema.alertRules.projectId, projectId))
+    .orderBy(desc(schema.alertRules.createdAt));
+}
+
+export async function listEnvironments(projectId: string) {
+  return db
+    .select({ id: schema.environments.id, name: schema.environments.name })
+    .from(schema.environments)
+    .where(eq(schema.environments.projectId, projectId))
+    .orderBy(schema.environments.name);
+}
+
 export async function getLatestSummary(projectId: string, issueId: string) {
   const r = await db
     .select()

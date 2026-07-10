@@ -33,12 +33,20 @@ export default async function ProjectPage({
       <Crumbs items={[{ href: "/projects", label: "Projects" }, { label: project.name }]} />
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">{project.name}</h1>
-        <Link
-          href={`/projects/${projectId}/labeling`}
-          className="rounded border border-neutral-300 px-3 py-1.5 text-sm hover:border-neutral-500 dark:border-neutral-700"
-        >
-          라벨링 →
-        </Link>
+        <div className="flex gap-2">
+          <Link
+            href={`/projects/${projectId}/alerts`}
+            className="rounded border border-neutral-300 px-3 py-1.5 text-sm hover:border-neutral-500 dark:border-neutral-700"
+          >
+            알림 →
+          </Link>
+          <Link
+            href={`/projects/${projectId}/labeling`}
+            className="rounded border border-neutral-300 px-3 py-1.5 text-sm hover:border-neutral-500 dark:border-neutral-700"
+          >
+            라벨링 →
+          </Link>
+        </div>
       </div>
 
       <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">

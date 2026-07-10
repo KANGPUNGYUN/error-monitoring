@@ -1,0 +1,15 @@
+{
+  "name": "@api-monitor/sdk",
+  "version": "0.1.0",
+  "description": "Passive API monitoring SDK — collects requests, latency, errors and ships them to the monitoring platform.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./express": "./src/express.ts",
+    "./next": "./src/next.ts"
+  },
+  "files": ["src"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  }
+}

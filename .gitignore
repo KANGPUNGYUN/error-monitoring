@@ -1,0 +1,14 @@
+node_modules
+.next
+.env
+.env.local
+*.log
+dist
+.DS_Store
+drizzle/meta
+*.tsbuildinfo
+datasets/
+reports/
+
+# Next.js generated
+next-env.d.ts

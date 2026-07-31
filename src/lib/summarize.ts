@@ -11,7 +11,7 @@ export type EvidenceClaim = { claim: string; event_ids: number[]; metric_ids: st
 type IssueFacts = {
   title: string;
   route: string;
-  status: number;
+  status: number | null; // client_error 는 HTTP status 없음
   exceptionType: string | null;
   eventCount: number;
   firstSeen: string;
@@ -56,7 +56,7 @@ async function gatherFacts(projectId: string, issueId: string): Promise<IssueFac
   return {
     title: issueRows[0].title,
     route: r?.route ?? "(unknown)",
-    status: r?.status ?? 0,
+    status: r?.status ?? null,
     exceptionType: r?.exceptionType ?? null,
     eventCount: issueRows[0].eventCount,
     firstSeen: new Date(issueRows[0].firstSeen).toISOString(),
@@ -69,12 +69,19 @@ async function gatherFacts(projectId: string, issueId: string): Promise<IssueFac
   };
 }
 
+/** 이슈 종류 라벨: 예외 타입 우선, 없으면 HTTP status, 둘 다 없으면 "에러". */
+function errorLabel(f: IssueFacts): string {
+  if (f.exceptionType) return f.exceptionType;
+  if (f.status != null) return `HTTP ${f.status}`;
+  return "에러";
+}
+
 /** 결정적 증거 빌더 — LLM 불필요, 오직 관찰 사실. */
 function buildEvidence(f: IssueFacts): { summary: string; evidence: EvidenceClaim[] } {
   const evidence: EvidenceClaim[] = [];
 
   evidence.push({
-    claim: `${f.route} 에서 ${f.exceptionType ?? `HTTP ${f.status}`} 이(가) ${f.eventCount}건 관측되었습니다 (최초 ${f.firstSeen}, 최근 ${f.lastSeen}).`,
+    claim: `${f.route} 에서 ${errorLabel(f)} 이(가) ${f.eventCount}건 관측되었습니다 (최초 ${f.firstSeen}, 최근 ${f.lastSeen}).`,
     event_ids: f.sampleEventIds,
     metric_ids: ["issue.event_count", "issue.first_seen", "issue.last_seen"],
   });
@@ -113,7 +120,7 @@ function buildEvidence(f: IssueFacts): { summary: string; evidence: EvidenceClai
     });
   }
 
-  const summary = `${f.route} 에서 ${f.exceptionType ?? `HTTP ${f.status}`} ${f.eventCount}건 (최근 ${f.lastSeen}); 릴리스 ${f.releases.map((r) => r.release).join(", ")}.`;
+  const summary = `${f.route} 에서 ${errorLabel(f)} ${f.eventCount}건 (최근 ${f.lastSeen}); 릴리스 ${f.releases.map((r) => r.release).join(", ")}.`;
   return { summary, evidence };
 }
 

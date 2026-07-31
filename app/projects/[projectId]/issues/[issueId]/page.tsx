@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { getProject, getIssue, listIssueEvents, getLatestSummary } from "@/db/queries";
 import { Card, Crumbs, StatusBadge, IssueStatusBadge, ago } from "@/ui/components";
 import { generateSummaryAction } from "./actions";
+import { IssueActions } from "./IssueActions";
 
 type EvidenceClaim = { claim: string; event_ids: number[]; metric_ids: string[] };
 
@@ -34,11 +35,23 @@ export default async function IssuePage({
 
       <div className="flex items-start justify-between gap-3">
         <h1 className="font-mono text-lg font-semibold">{issue.title}</h1>
-        <IssueStatusBadge status={issue.status} />
+        <div className="flex items-center gap-2">
+          {issue.kind === "client_error" && (
+            <span className="rounded bg-violet-100 px-1.5 py-0.5 text-xs font-medium text-violet-700 dark:bg-violet-950 dark:text-violet-300">
+              JS
+            </span>
+          )}
+          <IssueStatusBadge status={issue.status} />
+        </div>
       </div>
       <div className="mt-2 text-sm text-neutral-500">
         {issue.eventCount} events · first {ago(issue.firstSeenAt)} · last {ago(issue.lastSeenAt)}
         {issue.affectedReleases?.length ? ` · releases ${issue.affectedReleases.join(", ")}` : ""}
+      </div>
+
+      {/* 이슈 관리 액션 */}
+      <div className="mt-4">
+        <IssueActions projectId={projectId} issueId={issueId} status={issue.status} />
       </div>
 
       {/* 증거 연결형 요약 (SPEC 7) */}
@@ -118,9 +131,15 @@ export default async function IssuePage({
               <tr key={e.id} className="border-b border-neutral-100 last:border-0 dark:border-neutral-800/50">
                 <td className="px-4 py-2 whitespace-nowrap text-neutral-500">{ago(e.occurredAt)}</td>
                 <td className="px-4 py-2 font-mono text-xs">{e.route}</td>
-                <td className="px-4 py-2">{e.method}</td>
-                <td className="px-4 py-2"><StatusBadge status={e.status} /></td>
-                <td className="px-4 py-2 text-right">{e.durationMs}ms</td>
+                <td className="px-4 py-2">{e.method ?? "-"}</td>
+                <td className="px-4 py-2">
+                  {e.status != null ? <StatusBadge status={e.status} /> : (
+                    <span className="rounded bg-violet-100 px-1.5 py-0.5 text-xs font-medium text-violet-700 dark:bg-violet-950 dark:text-violet-300">
+                      JS error
+                    </span>
+                  )}
+                </td>
+                <td className="px-4 py-2 text-right">{e.durationMs != null ? `${e.durationMs}ms` : "-"}</td>
                 <td className="px-4 py-2 text-xs text-neutral-500">{e.release ?? "-"}</td>
               </tr>
             ))}

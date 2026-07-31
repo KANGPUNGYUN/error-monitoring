@@ -26,6 +26,7 @@ export type Overview = {
   errorRate: number;
   p95: number;
   openIssues: number;
+  clientErrors: number; // JS 런타임 에러 이벤트 수
 };
 
 export async function getProjectOverview(projectId: string): Promise<Overview> {
@@ -34,10 +35,13 @@ export async function getProjectOverview(projectId: string): Promise<Overview> {
       count(*)::int as total,
       count(*) filter (where status >= 500 or status = 429)::int as errors,
       coalesce(percentile_cont(0.95) within group (order by duration_ms), 0)::int as p95
-    from events where project_id = ${projectId}
+    from events where project_id = ${projectId} and kind = 'http'
   `)) as unknown as { total: number; errors: number; p95: number }[];
   const openIssues = (await db.execute(sql`
     select count(*)::int as c from issues where project_id = ${projectId} and status = 'open'
+  `)) as unknown as { c: number }[];
+  const clientErrors = (await db.execute(sql`
+    select count(*)::int as c from events where project_id = ${projectId} and kind = 'client_error'
   `)) as unknown as { c: number }[];
   const r = rows[0] ?? { total: 0, errors: 0, p95: 0 };
   return {
@@ -46,6 +50,7 @@ export async function getProjectOverview(projectId: string): Promise<Overview> {
     errorRate: r.total ? r.errors / r.total : 0,
     p95: r.p95,
     openIssues: openIssues[0]?.c ?? 0,
+    clientErrors: clientErrors[0]?.c ?? 0,
   };
 }
 
@@ -57,7 +62,7 @@ export async function topRoutes(projectId: string, limit = 10): Promise<RouteSta
       count(*)::int as total,
       count(*) filter (where status >= 500 or status = 429)::int as errors,
       coalesce(percentile_cont(0.95) within group (order by duration_ms), 0)::int as p95
-    from events where project_id = ${projectId}
+    from events where project_id = ${projectId} and kind = 'http'
     group by route
     order by errors desc, total desc
     limit ${limit}
@@ -105,6 +110,36 @@ export async function listEnvironments(projectId: string) {
     .from(schema.environments)
     .where(eq(schema.environments.projectId, projectId))
     .orderBy(schema.environments.name);
+}
+
+export type IssueStatus = "open" | "resolved" | "ignored";
+
+/** 이슈 상태 변경(해결/무시/다시 열기). project_id 스코프 강제. 변경된 행 수 반환. */
+export async function updateIssueStatus(
+  projectId: string,
+  issueId: string,
+  status: IssueStatus,
+): Promise<boolean> {
+  const r = await db
+    .update(schema.issues)
+    .set({ status })
+    .where(and(eq(schema.issues.projectId, projectId), eq(schema.issues.id, issueId)))
+    .returning({ id: schema.issues.id });
+  return r.length > 0;
+}
+
+/** 이슈 삭제. 소속 이벤트의 issue_id 를 먼저 끊고(이벤트는 보존), 이슈+요약 삭제(cascade). */
+export async function deleteIssue(projectId: string, issueId: string): Promise<boolean> {
+  // 이벤트는 원 telemetry 라 지우지 않고 issue_id 만 해제한다.
+  await db
+    .update(schema.events)
+    .set({ issueId: null })
+    .where(and(eq(schema.events.projectId, projectId), eq(schema.events.issueId, issueId)));
+  const r = await db
+    .delete(schema.issues)
+    .where(and(eq(schema.issues.projectId, projectId), eq(schema.issues.id, issueId)))
+    .returning({ id: schema.issues.id }); // issue_summaries 는 FK cascade 로 함께 삭제
+  return r.length > 0;
 }
 
 export async function getLatestSummary(projectId: string, issueId: string) {

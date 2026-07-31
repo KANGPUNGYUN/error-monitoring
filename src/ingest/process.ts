@@ -10,11 +10,12 @@ import type { EventPayload } from "./event-schema";
 const RUNTIME_BASELINE = "strong" as const;
 
 type NormalizedEvent = {
+  kind: "http" | "client_error";
   occurredAt: Date;
   route: string;
-  method: string;
-  status: number;
-  durationMs: number;
+  method: string | null;
+  status: number | null;
+  durationMs: number | null;
   release: string | null;
   commitSha: string | null;
   exceptionType: string | null;
@@ -25,19 +26,22 @@ type NormalizedEvent = {
 
 /** 수신 payload 를 서버 측에서 재-새니타이즈 + 정규화 (defense in depth). */
 function normalizeEvent(p: EventPayload): NormalizedEvent {
+  const kind = p.kind ?? "http";
   const route = normalizeRoute(p.route);
   const exceptionType = p.error?.type ?? null;
   const messageNorm = p.error?.message_norm
     ? normalizeMessage(p.error.message_norm)
     : null;
   const topFrames = p.error?.top_frames ? extractAppFrames(p.error.top_frames) : null;
+  const status = p.status ?? null;
 
   return {
+    kind,
     occurredAt: new Date(p.occurred_at),
     route,
-    method: p.method.toUpperCase(),
-    status: p.status,
-    durationMs: p.duration_ms,
+    method: p.method ? p.method.toUpperCase() : null,
+    status,
+    durationMs: p.duration_ms ?? null,
     release: p.release ?? null,
     commitSha: p.commit_sha ?? null,
     exceptionType,
@@ -48,21 +52,21 @@ function normalizeEvent(p: EventPayload): NormalizedEvent {
       messageNorm,
       topFrames,
       route,
-      status: p.status,
+      status,
       release: p.release ?? null,
     },
   };
 }
 
-const isError = (status: number) => status >= 500 || status === 429;
+const isError = (status: number | null) => status != null && (status >= 500 || status === 429);
 
 /** 에러 이벤트를 이슈로 그룹화(upsert)하고 issue_id 를 돌려준다. */
 async function upsertIssue(
   projectId: string,
   ev: NormalizedEvent,
 ): Promise<string | null> {
-  // 에러가 아닌 성공 요청은 이슈를 만들지 않는다(메트릭만).
-  if (!isError(ev.status) && !ev.exceptionType) return null;
+  // client_error 는 항상 이슈. http 는 5xx/429 또는 exception 이 있을 때만(성공 요청은 메트릭만).
+  if (ev.kind !== "client_error" && !isError(ev.status) && !ev.exceptionType) return null;
 
   const fingerprint = ruleFingerprint(ev.grouping, RUNTIME_BASELINE);
   const title = issueTitle(ev.grouping);
@@ -73,6 +77,7 @@ async function upsertIssue(
       projectId,
       fingerprint,
       title,
+      kind: ev.kind,
       firstSeenAt: ev.occurredAt,
       lastSeenAt: ev.occurredAt,
       eventCount: 1,
@@ -117,6 +122,7 @@ export async function processEvents(
       projectId: tenant.projectId,
       environmentId: tenant.environmentId,
       occurredAt: ev.occurredAt,
+      kind: ev.kind,
       route: ev.route,
       method: ev.method,
       status: ev.status,

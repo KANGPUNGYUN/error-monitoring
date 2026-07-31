@@ -4,6 +4,7 @@ import { normalizeMessage, extractAppFrames, parseStack } from "./sanitize";
 import { normalizeRoute } from "./route-normalize";
 import { expressMiddleware, expressErrorHandler } from "./express";
 import { wrapNext } from "./next";
+import { captureBrowserErrors } from "./browser";
 
 // SDK 코어. 이벤트를 만들어 새니타이즈 + 샘플링 후 큐에 넣는다. 어떤 경우에도 대상 앱에
 // 예외를 던지지 않는다(모든 공개 메서드는 try/catch 로 감싼다).
@@ -45,6 +46,7 @@ export class Monitor {
 
       const ev: CapturedEvent = {
         occurred_at: new Date().toISOString(),
+        kind: "http",
         route: normalizeRoute(sample.route),
         method: sample.method.toUpperCase(),
         status: sample.status,
@@ -58,6 +60,43 @@ export class Monitor {
     } catch {
       // SDK 예외는 절대 밖으로 던지지 않는다.
     }
+  }
+
+  /** 브라우저 JS 런타임 에러 1건 기록(kind=client_error). route 는 페이지 경로.
+   *  HTTP method/status/duration 없이 에러 메시지·스택만 전송한다. */
+  recordError(error: unknown, route?: string): void {
+    try {
+      const built = this.buildError(error);
+      // 메시지·스택이 전혀 없으면(빈 에러) 스킵 — 서버가 거부한다.
+      if (!built?.type && !built?.message_norm) return;
+      const ev: CapturedEvent = {
+        occurred_at: new Date().toISOString(),
+        kind: "client_error",
+        route: normalizeRoute(route ?? this.currentRoute()),
+        release: this.config.release,
+        commit_sha: this.config.commitSha,
+        error: built,
+      };
+      this.transport.enqueue(ev);
+    } catch {
+      // SDK 예외는 절대 밖으로 던지지 않는다.
+    }
+  }
+
+  /** 브라우저 환경에서 현재 페이지 경로(없으면 "/"). */
+  private currentRoute(): string {
+    try {
+      const loc = (globalThis as { location?: { pathname?: string } }).location;
+      return loc?.pathname || "/";
+    } catch {
+      return "/";
+    }
+  }
+
+  /** window.onerror / unhandledrejection 을 구독해 브라우저 런타임 에러를 자동 캡처.
+   *  브라우저가 아니면 no-op. 반환값은 구독 해제 함수. */
+  captureBrowserErrors(): () => void {
+    return captureBrowserErrors(this);
   }
 
   private buildError(error: unknown): CapturedEvent["error"] {

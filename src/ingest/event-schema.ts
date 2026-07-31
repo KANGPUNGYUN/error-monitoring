@@ -11,18 +11,37 @@ export const errorPayloadSchema = z
   })
   .strict();
 
+// kind: http = API 요청 계측(method/status/duration_ms 필수)
+//       client_error = 브라우저 JS 런타임 에러(error 필수, HTTP 필드 없음)
 export const eventPayloadSchema = z
   .object({
     occurred_at: z.string().datetime(),
+    kind: z.enum(["http", "client_error"]).optional(), // 미지정 시 http (하위 호환)
     route: z.string().min(1).max(1000),
-    method: z.string().min(1).max(10),
-    status: z.number().int().min(100).max(599),
-    duration_ms: z.number().int().min(0).max(600_000),
+    method: z.string().min(1).max(10).optional(),
+    status: z.number().int().min(100).max(599).optional(),
+    duration_ms: z.number().int().min(0).max(600_000).optional(),
     release: z.string().max(200).optional(),
     commit_sha: z.string().max(64).optional(),
     error: errorPayloadSchema.optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((v, ctx) => {
+    const kind = v.kind ?? "http";
+    if (kind === "http") {
+      // http 는 기존 계약 유지 — 세 필드 필수.
+      if (v.method === undefined)
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["method"], message: "http 이벤트는 method 필수" });
+      if (v.status === undefined)
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["status"], message: "http 이벤트는 status 필수" });
+      if (v.duration_ms === undefined)
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["duration_ms"], message: "http 이벤트는 duration_ms 필수" });
+    } else {
+      // client_error 는 에러 정보가 있어야 이슈로 그룹화 가능.
+      if (!v.error || (!v.error.type && !v.error.message_norm))
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["error"], message: "client_error 는 error.type/message_norm 필요" });
+    }
+  });
 
 export const ingestBodySchema = z
   .object({

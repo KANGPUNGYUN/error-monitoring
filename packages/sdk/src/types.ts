@@ -19,13 +19,16 @@ export type MonitorConfig = {
   debug?: boolean;
 };
 
-/** 전송 스키마(strict) — 서버 event-schema 와 동치. */
+/** 전송 스키마(strict) — 서버 event-schema 와 동치.
+ *  kind=http: API 요청 계측(method/status/duration_ms 필수).
+ *  kind=client_error: 브라우저 JS 런타임 에러(error 필수, HTTP 필드 없음). */
 export type CapturedEvent = {
   occurred_at: string;
+  kind?: "http" | "client_error"; // 미지정 시 서버가 http 로 처리(하위 호환)
   route: string;
-  method: string;
-  status: number;
-  duration_ms: number;
+  method?: string;
+  status?: number;
+  duration_ms?: number;
   release?: string;
   commit_sha?: string;
   error?: {

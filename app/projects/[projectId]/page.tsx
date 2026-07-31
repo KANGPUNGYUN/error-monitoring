@@ -49,11 +49,12 @@ export default async function ProjectPage({
         </div>
       </div>
 
-      <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Stat label="Events" value={ov.total.toLocaleString()} />
+      <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-5">
+        <Stat label="Requests" value={ov.total.toLocaleString()} />
         <Stat label="Errors" value={ov.errors.toLocaleString()} tone={ov.errors > 0 ? "warn" : "ok"} />
         <Stat label="Error rate" value={`${(ov.errorRate * 100).toFixed(1)}%`} tone={ov.errorRate > 0.1 ? "bad" : "ok"} />
         <Stat label="p95 latency" value={`${ov.p95} ms`} tone={ov.p95 > 1000 ? "warn" : "ok"} />
+        <Stat label="JS errors" value={ov.clientErrors.toLocaleString()} tone={ov.clientErrors > 0 ? "warn" : "ok"} />
       </div>
 
       {/* Top routes */}
@@ -123,10 +124,21 @@ export default async function ProjectPage({
       <div className="mt-2 space-y-2">
         {issues.map((i) => (
           <Link key={i.id} href={`/projects/${projectId}/issues/${i.id}`}>
-            <Card className="transition hover:border-neutral-400 dark:hover:border-neutral-600">
+            <Card
+              className={`transition hover:border-neutral-400 dark:hover:border-neutral-600 ${
+                i.status !== "open" ? "opacity-60" : ""
+              }`}
+            >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <div className="truncate font-mono text-sm">{i.title}</div>
+                  <div className="flex items-center gap-2">
+                    {i.kind === "client_error" && (
+                      <span className="shrink-0 rounded bg-violet-100 px-1.5 py-0.5 text-[10px] font-medium text-violet-700 dark:bg-violet-950 dark:text-violet-300">
+                        JS
+                      </span>
+                    )}
+                    <div className="truncate font-mono text-sm">{i.title}</div>
+                  </div>
                   <div className="mt-1 text-xs text-neutral-500">
                     {i.eventCount} events · last {ago(i.lastSeenAt)}
                     {i.affectedReleases?.length ? ` · releases ${i.affectedReleases.join(", ")}` : ""}

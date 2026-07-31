@@ -98,10 +98,12 @@ export const events = pgTable(
     projectId: uuid("project_id").notNull(),
     environmentId: uuid("environment_id").notNull(),
     occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull(),
-    route: text("route").notNull(), // 정규화됨: /users/:id
-    method: text("method").notNull(),
-    status: smallint("status").notNull(),
-    durationMs: integer("duration_ms").notNull(),
+    // http = API 요청 계측 / client_error = 브라우저 JS 런타임 에러(메시지·스택)
+    kind: text("kind").notNull().default("http"),
+    route: text("route").notNull(), // 정규화됨: /users/:id (client_error 는 페이지 경로)
+    method: text("method"), // http 필수 / client_error 는 null
+    status: smallint("status"), // http 필수 / client_error 는 null
+    durationMs: integer("duration_ms"), // http 필수 / client_error 는 null
     release: text("release"),
     commitSha: text("commit_sha"),
     exceptionType: text("exception_type"),
@@ -126,6 +128,7 @@ export const issues = pgTable(
       .references(() => projects.id, { onDelete: "cascade" }),
     fingerprint: text("fingerprint").notNull(),
     title: text("title").notNull(),
+    kind: text("kind").notNull().default("http"), // http / client_error (대표 이벤트 종류)
     firstSeenAt: timestamp("first_seen_at", { withTimezone: true }).notNull(),
     lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull(),
     eventCount: integer("event_count").notNull().default(0),

@@ -51,13 +51,26 @@ const FRAMEWORK_FRAME_HINTS = [
   "react-dom",
 ];
 
-/** Error.stack 문자열을 프레임 배열로 파싱. */
+/** Error.stack 문자열을 프레임 배열로 파싱.
+ *  V8/Node·Chrome: "at fn (file:line:col)"
+ *  Firefox/Safari: "fn@file:line:col" → "at fn (file:line:col)" 로 정규화. */
 export function parseStack(stack: string | undefined): string[] {
   if (!stack) return [];
-  return stack
-    .split("\n")
-    .map((l) => l.trim())
-    .filter((l) => l.startsWith("at "));
+  const out: string[] = [];
+  for (const raw of stack.split("\n")) {
+    const l = raw.trim();
+    if (!l) continue;
+    if (l.startsWith("at ")) {
+      out.push(l);
+    } else if (l.includes("@") && !l.endsWith("@")) {
+      // Firefox/Safari: "name@url:line:col" (name 이 비면 "@url...").
+      const at = l.indexOf("@");
+      const name = l.slice(0, at) || "<anonymous>";
+      const loc = l.slice(at + 1);
+      out.push(`at ${name} (${loc})`);
+    }
+  }
+  return out;
 }
 
 /** framework/vendor 프레임 제거 + basename 축약 + 시크릿 마스킹 후 top N. */

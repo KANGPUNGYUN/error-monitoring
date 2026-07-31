@@ -8,7 +8,7 @@ export type GroupingInput = {
   messageNorm?: string | null; // 이미 normalizeMessage 처리됨
   topFrames?: string[] | null; // 이미 extractAppFrames 처리됨
   route: string;
-  status: number;
+  status: number | null; // client_error 는 HTTP status 없음(null)
   release?: string | null;
 };
 
@@ -57,7 +57,7 @@ export function ruleFingerprint(
 
 /** 이슈 제목: 사람이 읽을 수 있는 대표 라벨. */
 export function issueTitle(input: GroupingInput): string {
-  const type = input.exceptionType ?? `HTTP ${input.status}`;
+  const type = input.exceptionType ?? (input.status != null ? `HTTP ${input.status}` : "Error");
   const where = input.route;
   const msg = input.messageNorm ? `: ${input.messageNorm.slice(0, 80)}` : "";
   return `${type} @ ${where}${msg}`;

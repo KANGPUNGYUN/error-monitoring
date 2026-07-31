@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { listProjects, getProjectOverview } from "@/db/queries";
 import { Card } from "@/ui/components";
+import { NewProjectForm } from "./NewProjectForm";
 
 export const dynamic = "force-dynamic";
 
@@ -15,9 +16,11 @@ export default async function ProjectsPage() {
       <h1 className="text-xl font-semibold">Projects</h1>
       <p className="mt-1 text-sm text-neutral-500">모니터링 중인 프로젝트</p>
 
+      <NewProjectForm />
+
       {withStats.length === 0 && (
         <Card className="mt-6 text-sm text-neutral-500">
-          프로젝트가 없습니다. <code>npm run db:seed</code> 로 데모 프로젝트를 만드세요.
+          아직 프로젝트가 없습니다. 위 <b>+ 새 프로젝트</b>로 등록하세요.
         </Card>
       )}
 

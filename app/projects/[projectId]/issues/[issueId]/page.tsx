@@ -77,7 +77,7 @@ export default async function IssuePage({
           </>
         ) : (
           <p className="mt-2 text-sm text-neutral-500">
-            아직 요약이 없습니다. "요약 생성"을 누르세요. (Ollama 있으면 자연어, 없으면 결정적 사실 요약)
+            아직 요약이 없습니다. "요약 생성"을 누르세요. (ANTHROPIC_API_KEY 있으면 자연어, 없으면 결정적 사실 요약)
           </p>
         )}
       </Card>

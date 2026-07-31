@@ -218,8 +218,11 @@ MVP는 **런타임 1개(Node.js/Express + Next.js Route Handler)** 부터. 나�
   받아 *모든 주장(claim)마다 근거 `event_id`/`metric_id` 인용을 필수 필드로* 요구한다.
   근거 없는 claim은 파서에서 거부.
 - LLM은 프롬프트에 주입된 수집 사실에만 grounding.
-- **LLM backend는 로컬 우선**(보안): **Ollama**(Llama 3.x / Qwen2.5 등, 로컬·무료·
-  데이터 외부 유출 없음, JSON 모드로 인용 스키마 강제) 기본, OpenAI는 선택.
+- **LLM backend는 호스팅 AI**: **Anthropic Claude API**(`ANTHROPIC_API_KEY`, 기본
+  `claude-opus-4-8` — `CLAUDE_MODEL` 로 교체 가능). 키가 없으면 **결정적 요약으로 자동
+  degrade**(핵심은 여전히 코어 결정적 빌더 — hallucination 0).
+  - 로컬 LLM(Ollama·GPU) 방식은 폐기: 구동에 GPU가 필요하고, 요약이 이미 AI 개발 흐름의
+    일부라 보안상 로컬 강제의 이득이 크지 않다는 판단. 자연어 다듬기만 호스팅으로 위임.
 - 모델/프롬프트는 6장 하네스와 같은 방식으로 품질을 사후 점검 가능하게 설계.
 
 ---
@@ -249,10 +252,11 @@ MVP는 **런타임 1개(Node.js/Express + Next.js Route Handler)** 부터. 나�
 - DB: PostgreSQL — MVP 볼륨 상한을 **숫자로 명시**: raw 이벤트 retention 14일,
   샘플링 상한(프로젝트당 초당 이벤트 캡), 시간 단위 롤업 후 raw 삭제. TSDB(ClickHouse/
   Timescale)는 스코프 밖으로 명시. 상한 초과는 인제스트에서 drop + 카운트만 집계.
-- AI (로컬 우선 — 보안: 테넌트 데이터가 기계 밖으로 안 나감, 키·retention 약관 없음):
-  - 임베딩(그룹화): **`@huggingface/transformers` all-MiniLM-L6-v2** (로컬·무료·오프라인). OpenAI는 선택.
-  - LLM(요약): **Ollama** (로컬·무료). OpenAI는 선택.
-  - 호스팅 무료 티어(Gemini 등)는 **무료 티어 데이터 학습 사용** 우려로 테넌트 데이터엔 비권장.
+- AI:
+  - 임베딩(그룹화, 연구 코어): **`@huggingface/transformers` all-MiniLM-L6-v2** (로컬·무료·오프라인,
+    연구 재현성을 위해 freeze). OpenAI 임베딩은 선택 backend(6.6).
+  - LLM(요약): **Anthropic Claude API** (호스팅, `ANTHROPIC_API_KEY`). 키 없으면 결정적 요약으로 degrade.
+    로컬 LLM(Ollama)은 GPU 부담·이득 대비로 폐기(7장 참조).
 - Notification: Slack Incoming Webhook
 - SDK: Node.js/Next.js 계측 (자체) — OTel은 선택적 후속
 

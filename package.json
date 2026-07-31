@@ -22,6 +22,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.111.0",
     "@huggingface/transformers": "^4.2.0",
     "drizzle-orm": "^0.38.3",
     "next": "^15.1.6",

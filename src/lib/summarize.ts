@@ -1,10 +1,10 @@
 import { sql } from "drizzle-orm";
 import { db, schema } from "@/db";
-import { ollamaAvailable, ollamaGenerate, OLLAMA_MODEL } from "./llm";
+import { claudeAvailable, claudeGenerate, CLAUDE_MODEL } from "./llm";
 
 // 증거 연결형 Incident 요약 (SPEC 7). 원인 단정 금지 — 관찰 사실만 연결하고,
 // 모든 claim 은 근거 event_id / metric_id 를 인용한다.
-// 코어는 결정적(LLM 불필요, hallucination 0). Ollama 가 있으면 자연어로 다듬는다.
+// 코어는 결정적(AI 불필요, hallucination 0). ANTHROPIC_API_KEY 가 있으면 Claude 로 자연어로 다듬는다.
 
 export type EvidenceClaim = { claim: string; event_ids: number[]; metric_ids: string[] };
 
@@ -117,17 +117,17 @@ function buildEvidence(f: IssueFacts): { summary: string; evidence: EvidenceClai
   return { summary, evidence };
 }
 
-/** Ollama 로 결정적 요약을 자연어 한 문장으로 다듬는다(선택). 사실만 재진술하도록 제약. */
+/** Claude 로 결정적 요약을 자연어 한 문장으로 다듬는다(선택). 사실만 재진술하도록 제약. */
 async function narrate(f: IssueFacts, evidence: EvidenceClaim[]): Promise<string | null> {
-  if (!(await ollamaAvailable())) return null;
+  if (!claudeAvailable()) return null;
   const facts = JSON.stringify({ route: f.route, type: f.exceptionType, status: f.status, eventCount: f.eventCount, firstSeen: f.firstSeen, lastSeen: f.lastSeen, releases: f.releases, environments: f.environments, topFrame: f.topFrame }, null, 0);
   const prompt = `너는 장애 관측 요약기다. 아래 JSON 사실만 사용해 한국어 한 문장으로 요약하라.
-규칙: 원인/해결책을 단정하지 마라. 주어진 수치·이름 외의 정보를 지어내지 마라. 관찰된 사실만 연결하라.
+규칙: 원인/해결책을 단정하지 마라. 주어진 수치·이름 외의 정보를 지어내지 마라. 관찰된 사실만 연결하라. 요약 문장만 출력하라.
 사실: ${facts}
 증거: ${JSON.stringify(evidence.map((e) => e.claim))}
 요약(한 문장):`;
   try {
-    const text = await ollamaGenerate(prompt);
+    const text = await claudeGenerate(prompt);
     return text ? text.split("\n")[0].slice(0, 400) : null;
   } catch {
     return null;
@@ -136,14 +136,14 @@ async function narrate(f: IssueFacts, evidence: EvidenceClaim[]): Promise<string
 
 export type SummaryResult = { model: string; summary: string; evidence: EvidenceClaim[] };
 
-/** 요약 생성 + 저장. Ollama 있으면 자연어, 없으면 결정적. */
+/** 요약 생성 + 저장. ANTHROPIC_API_KEY 있으면 자연어(Claude), 없으면 결정적. */
 export async function generateAndStore(projectId: string, issueId: string): Promise<SummaryResult | null> {
   const facts = await gatherFacts(projectId, issueId);
   if (!facts) return null;
 
   const { summary: deterministic, evidence } = buildEvidence(facts);
   const narrated = await narrate(facts, evidence);
-  const model = narrated ? `ollama:${OLLAMA_MODEL}` : "deterministic";
+  const model = narrated ? `claude:${CLAUDE_MODEL}` : "deterministic";
   const summary = narrated ?? deterministic;
 
   await db.insert(schema.issueSummaries).values({

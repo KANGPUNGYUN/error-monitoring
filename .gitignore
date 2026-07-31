@@ -12,3 +12,5 @@ reports/
 
 # Next.js generated
 next-env.d.ts
+.vercel
+.env*

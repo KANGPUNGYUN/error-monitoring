@@ -17,6 +17,7 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:seed": "tsx scripts/seed.ts",
+    "project:create": "tsx scripts/create-project.ts",
     "research:gen": "tsx research/corpus/generate.ts",
     "research:eval": "tsx research/run.ts",
     "typecheck": "tsc --noEmit"
